@@ -1,8 +1,8 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import React, { useEffect, useState } from 'react';
 import { useSnapshot } from 'valtio';
-import { getRandomPrompt } from '../utils';
 import { AIPicker, ColorPicker, CustomButton, FilePicker, Tab } from '../components';
+import config from '../config/config';
 import { DecalTypes, EditorTabs, FilterTabs } from '../config/constants';
 import { displayLoading, getScreenshot, hideLoading, reader } from '../config/helpers';
 import { fadeAnimation, slideAnimation } from '../config/motion';
@@ -10,12 +10,6 @@ import state from '../store';
 
 const Customizer = () => {
 	const snap = useSnapshot(state);
-
-	const [form, setForm] = useState({
-		name: '',
-		prompt: '',
-		photo: '',
-	});
 
 	const [file, setFile] = useState('');
 	const [prompt, setPrompt] = useState('');
@@ -36,56 +30,32 @@ const Customizer = () => {
 		}, 5000);
 	}
 
-	const handleSurpriseMe = () => {
-		const randomPrompt = getRandomPrompt(form.prompt);
-		setForm({ ...form, prompt: randomPrompt });
-	};
-
-	const generateImage = async () => {
-		if (form.prompt) {
-			try {
-				setGeneratingImg(true);
-				const response = await fetch('http://localhost:8080/api/v1/dalle', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					prompt: form.prompt,
-				}),
-				});
-		
-				const data = await response.json();
-				setForm({ ...form, photo: `data:image/jpeg;base64,${data.photo}` });
-			} catch (err) {
-				alert(err);
-			} finally {
-				setGeneratingImg(false);
-			}
-		} else {
-			alert('Please provide proper prompt');
-		}
-	};
-
 	const handleSubmit = async type => {
-		if (form.prompt) return alert('Please enter a prompt');
+		if (!prompt) return alert('Please enter a prompt');
 		try {
 			setGeneratingImg(true);
 			displayLoading();
 
 			//* call our backend to generate an AI image
-			const response = await fetch(`http://localhost:8080/api/v1/post`, {
+			const response = await fetch(`http://localhost:8080/api/v1/dalle`, {
 				method: 'POST',
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify({ ...form }),
+				body: JSON.stringify({
+					prompt,
+				}),
 			});
 
-			await response.json();
-			alert('Success');
+			hideLoading();
+
+			
+			const data = await response.json();
+			handleDecals(type, `data:image/png;base64,${data.photo}`);
 		} catch (error) {
-			alert('error',);
+			alert(
+				'Too many requests, DALL-E daily limit is reached!',
+			);
 		} finally {
 			setGeneratingImg(false);
 			// setActiveEditorTab('');
